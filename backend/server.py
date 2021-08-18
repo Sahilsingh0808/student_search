@@ -1,6 +1,7 @@
 from flask import abort, g, jsonify, request, Flask
 import os
 from sqlite3 import connect
+import itertools
 
 app = Flask(__name__)
 
@@ -9,6 +10,7 @@ DATABASE = os.getenv('DB_LOC', '../database/students.db')
 
 def get_db():
     db = getattr(g, '_database', None)
+    print("DB")
     if db is None:
         db = g._database = connect(DATABASE)
     return db
@@ -52,14 +54,45 @@ def get_all_students():
 @app.route('/student')
 def get_particular_student():
     username = request.args.get('username')
+
+    nameSplit = username.split()    # Split the name into seperate words
+    all_combinations = []
+
+    # Generate all possible combinations of the name in a list
+    for r in range(len(nameSplit) + 1):
+        combinations_object = itertools.combinations(nameSplit, r)
+        combinations_list = list(combinations_object)
+        all_combinations += combinations_list
+
+    # Concatenate all the seperate combinations into seperate strings for searching
+    y = []
+    for i in (all_combinations):
+        s = ""
+        if len(i) > 0:
+            for j in i:
+                s += str(j)
+            y.append(s)
+    searchNames = tuple(y)
+
+    # making of the query
+    lengthNamesList = len(searchNames)
+    count = 0
+    query = "SELECT * FROM students WHERE username IN "
+    for i in searchNames:
+        count += 1
+        if count < lengthNamesList:
+            query += "('" + i + "') OR username IN "
+        elif count == lengthNamesList:
+            query += "('" + i + "')"
+
     roll = request.args.get('roll')
-    if((username is None or username is '') and (roll is None or roll is '')):
+    if((username == None or username == '') and (roll == None or roll == '')):
         abort(400)
     db = get_db()
     c = db.cursor()
     if username:
         print(username)
-        c.execute("SELECT * FROM students WHERE username IS ?", (username, ))
+        c.execute(query)
     else:
         print(roll)
         c.execute("SELECT * FROM students WHERE roll IS ?", (roll, ))
